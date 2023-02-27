@@ -1,60 +1,52 @@
-require 'rake'
+class Student
 
-describe "Rakefile" do
-  before(:all) do
-    load File.expand_path("../../Rakefile", __FILE__)
+  # Remember, you can access your database connection anywhere in this class
+  #  with DB[:conn]  
+  
+  attr_accessor :name, :grade
+  
+  attr_reader :id
+  
+  def initialize(name, grade, id=nil)
+    @id = id
+    @name = name
+    @grade = grade
+  end
+  
+  def self.create_table
+    sql =  <<-SQL 
+      CREATE TABLE IF NOT EXISTS students (
+        id INTEGER PRIMARY KEY, 
+        name TEXT, 
+        grade TEXT
+        )
+    SQL
+    DB[:conn].execute(sql) 
   end
 
-  describe 'namespace :greeting' do
-    describe 'greeting:hello' do
-      it "should print out 'hello from Rake!'" do
-        expect($stdout).to receive(:puts).with("hello from Rake!")
-        Rake::Task["greeting:hello"].invoke
-      end
-    end
+  def self.drop_table
+    sql = "DROP TABLE IF EXISTS students"
+    DB[:conn].execute(sql) 
+  end
+  
+  def save
+    sql = <<-SQL
+      INSERT INTO students (name, grade) 
+      VALUES (?, ?)
+    SQL
 
-    describe 'greeting:hola' do
-      it "should print out 'hola de Rake!'" do
-        expect($stdout).to receive(:puts).with("hola de Rake!")
-        Rake::Task["greeting:hola"].invoke
-      end
-    end
+    DB[:conn].execute(sql, self.name, self.grade)
+    
   end
 
-  describe 'console' do
-    it 'exists' do
-      expect(Rake::Task['console']).to be_truthy, "Make sure you have a 'console' rake task"
-    end
+  def self.create(name:, grade:)
+    student = Student.new(name, grade)
+    student.save
   end
 
-  describe 'namespace :db' do
-    describe 'db:migrate' do
-      it "invokes the :environment task as a dependency" do
-        expect(Rake::Task["db:migrate"].prerequisites).to include("environment")
-      end
-
-      it "create the students table in the database" do
-        Rake::Task["db:migrate"].invoke
-        sql = "SELECT name FROM sqlite_master WHERE type='table'ORDER BY name;"
-        expect(DB[:conn].execute(sql).first).to include("students")
-      end
-    end
-
-    describe 'db:seed' do
-      before(:each) do
-        clear_database
-        recreate_table
-      end
-
-      it "seeds the database with dummy data from a seed file" do
-        Rake::Task["db:seed"].invoke
-        sql = "select * from students;"
-        dummy_data = DB[:conn].execute(sql)
-        expect(dummy_data.length).to eq(5)
-        expect(dummy_data.first[0]).to eq(1)
-        expect(dummy_data[1][1]).to eq("April")
-        expect(dummy_data[4][2]).to eq("10th")
-      end
-    end
+  def self.all
+    sql = "SELECT * FROM students" 
+    DB[:conn].execute(sql)
   end
+
 end
